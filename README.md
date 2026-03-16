@@ -32,6 +32,21 @@ npx dockhunt
 You can find the [dockhunt package](https://www.npmjs.com/package/dockhunt) on
 npm.
 
+### Option 3: Export dock for your website
+
+Export your dock to a local directory (no upload, no browser):
+
+```
+npx dockhunt --export ./my-dock
+```
+
+This creates:
+- `my-dock/dock.json` – app names and icon filenames
+- `my-dock/icons/*.png` – converted PNG icons
+
+Copy the output into your project (e.g. `public/dock/`) and use it with your
+dock component.
+
 ## What does it do?
 1. Scans your macOS dock
    - For each app, find its name and the best-guess path to its icon file

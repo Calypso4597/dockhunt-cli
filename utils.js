@@ -134,6 +134,71 @@ export function icns2png(appName, icnsPath, outputDir) {
     });
 }
 
+/**
+ * Export dock data and icons to a local directory for use on a website.
+ * @param {string} dockXmlPlist - Raw dock plist XML from defaults export
+ * @param {string} outputDir - Directory to write dock.json and icons/
+ */
+export async function exportDock(dockXmlPlist, outputDir) {
+    if (!dockXmlPlist.match(/<!DOCTYPE plist/g)) {
+        throw new Error('Dock data appears to be invalid. Expected: Apple plist XML.');
+    }
+
+    const parsedDockData = await new Promise((resolve, reject) => {
+        parseString(dockXmlPlist, function (error, result) {
+            return error ? reject(error) : resolve(result);
+        });
+    });
+
+    const appNamesToIconPaths = getAppNamesToIconPaths(parsedDockData);
+    const appNames = Object.keys(appNamesToIconPaths);
+
+    if (!appNames.length) {
+        console.log('Found what appears to be an empty dock.');
+        return;
+    }
+
+    console.log('Found the following pinned apps in your dock:\n');
+    for (const name of appNames) {
+        console.log(`•  ${name}`);
+    }
+
+    const outputPath = path.resolve(process.cwd(), outputDir);
+    const iconsDir = path.join(outputPath, 'icons');
+    await fs.ensureDir(iconsDir);
+
+    const dockData = [];
+
+    for (const appName of appNames) {
+        const icnsPath = appNamesToIconPaths[appName];
+        let iconFilename = null;
+
+        if (icnsPath) {
+            try {
+                const safeName = appName.replace(/[/\\]/g, '-');
+                const { iconPath } = await icns2png(safeName, icnsPath, iconsDir);
+                iconFilename = path.basename(iconPath);
+            } catch (err) {
+                console.warn(`Could not convert icon for ${appName}:`, err.message);
+            }
+        } else {
+            console.warn(`No icon found for ${appName}`);
+        }
+
+        dockData.push({
+            name: appName,
+            icon: iconFilename,
+        });
+    }
+
+    const dockJsonPath = path.join(outputPath, 'dock.json');
+    await fs.writeJson(dockJsonPath, { apps: dockData }, { spaces: 2 });
+
+    console.log(`\nExported to ${outputPath}`);
+    console.log(`  - dock.json (${dockData.length} apps)`);
+    console.log(`  - icons/ (${dockData.filter((a) => a.icon).length} PNG icons)`);
+}
+
 export async function scanDockAndBringToWebApp(dockXmlPlist) {
     if (!dockXmlPlist.match(/<!DOCTYPE plist/g)) {
         throw 'Dock data appears to be invalid. Expected: Apple plist XML.';
